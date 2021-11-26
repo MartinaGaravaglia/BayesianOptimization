@@ -1,0 +1,3 @@
+[submodule "Cornell-MOE"]
+	path = Cornell-MOE
+	url = https://github.com/wujian16/Cornell-MOE.git
