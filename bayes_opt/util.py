@@ -86,10 +86,10 @@ class UtilityFunction(object):
         
         self._iters_counter = 0
 
-        if kind not in ['ucb', 'ei', 'poi']:
+        if kind not in ['ucb', 'ei', 'poi','kg']:
             err = "The utility function " \
                   "{} has not been implemented, " \
-                  "please choose one of ucb, ei, or poi.".format(kind)
+                  "please choose one of ucb, ei, kg or poi.".format(kind)
             raise NotImplementedError(err)
         else:
             self.kind = kind
@@ -107,6 +107,8 @@ class UtilityFunction(object):
             return self._ei(x, gp, y_max, self.xi)
         if self.kind == 'poi':
             return self._poi(x, gp, y_max, self.xi)
+         if self.kind == 'kg':
+            return self._kg(x, gp, self.xi, init=np.linspace(0, 3, 10), n=10)
 
     @staticmethod
     def _ucb(x, gp, kappa):
@@ -134,6 +136,22 @@ class UtilityFunction(object):
 
         z = (mean - y_max - xi)/std
         return norm.cdf(z)
+    
+     @staticmethod
+    def _kg(x, gp, xi, init,n):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            a=0
+            for i in range(n):
+                mean, std = gp.predict(x, return_std=True)
+                y=norm.pdf(x)*std+mean
+                mean_n= max(gp.predict(init,return_std=False))
+                gp.probe(params= {"x" : x, "y" : y},lazy=True)
+                mean_n1= max(gp.predict(init,return_std=False))
+                a = (mean_n - mean_n1)
+                
+        a = a / n
+        return a 
 
 
 def load_logs(optimizer, logs):
