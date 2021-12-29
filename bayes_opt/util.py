@@ -4,7 +4,7 @@ from scipy.stats import norm
 from scipy.optimize import minimize
 
 
-def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
+def acq_max(optimizer, ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
     """
     A function to find the maximum of the acquisition function
 
@@ -43,7 +43,7 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
     # Warm up with random points
     x_tries = random_state.uniform(bounds[:, 0], bounds[:, 1],
                                    size=(n_warmup, bounds.shape[0]))
-    ys = ac(x_tries, gp=gp, y_max=y_max)
+    ys = ac(x_tries, optimizer, gp=gp, y_max=y_max)
     x_max = x_tries[ys.argmax()]
     max_acq = ys.max()
 
@@ -52,7 +52,7 @@ def acq_max(ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10):
                                    size=(n_iter, bounds.shape[0]))
     for x_try in x_seeds:
         # Find the minimum of minus the acquisition function
-        res = minimize(lambda x: -ac(x.reshape(1, -1), gp=gp, y_max=y_max),
+        res = minimize(lambda x: -ac(x.reshape(1, -1), optimizer, gp=gp, y_max=y_max),
                        x_try.reshape(1, -1),
                        bounds=bounds,
                        method="L-BFGS-B")
@@ -100,15 +100,15 @@ class UtilityFunction(object):
         if self._kappa_decay < 1 and self._iters_counter > self._kappa_decay_delay:
             self.kappa *= self._kappa_decay
 
-    def utility(self, x, gp, y_max):
+    def utility(self, x, optimizer, gp, y_max):
         if self.kind == 'ucb':
             return self._ucb(x, gp, self.kappa)
         if self.kind == 'ei':
             return self._ei(x, gp, y_max, self.xi)
         if self.kind == 'poi':
             return self._poi(x, gp, y_max, self.xi)
-         if self.kind == 'kg':
-            return self._kg(x, gp, self.xi, init=np.linspace(0, 3, 10), n=10)
+        if self.kind == 'kg':
+            return self._kg(x, optimizer, gp, y_max)
 
     @staticmethod
     def _ucb(x, gp, kappa):
@@ -137,21 +137,65 @@ class UtilityFunction(object):
         z = (mean - y_max - xi)/std
         return norm.cdf(z)
     
-     @staticmethod
-    def _kg(x, gp, xi, init,n):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            a=0
-            for i in range(n):
-                mean, std = gp.predict(x, return_std=True)
-                y=norm.pdf(x)*std+mean
-                mean_n= max(gp.predict(init,return_std=False))
-                gp.probe(params= {"x" : x, "y" : y},lazy=True)
-                mean_n1= max(gp.predict(init,return_std=False))
-                a = (mean_n - mean_n1)
-                
-        a = a / n
-        return a 
+    @staticmethod
+    
+    ### ! We have not used the L - BFGS - B because the iterations become too slow ###
+    
+    def _kg(x, optimizer, gp, y_max):
+        def posterior(gp, x_obs, y_obs, grid):
+            gp.fit(x_obs, y_obs)
+            mu, sigma = gp.predict(grid, return_std=True)
+            return mu
+
+        import warnings
+
+        #print(optimizer.res)
+        a = []
+        x_obs = np.array([[res["params"]["x"]] for res in optimizer.res])
+        y_obs = np.array([res["target"] for res in optimizer.res])
+        # print(x_obs)
+        init = np.linspace(min(x), max(x), 1000)
+        init = init.reshape(-1,1)
+        mean_nstar = max(posterior(gp, x_obs, y_obs, init))
+        #print(mean_nstar['fun'])
+        J = 10 
+
+        for j in range(J):
+            mean_n1star=np.zeros(len(x))
+            diff=np.zeros(len(x))
+            ii=0
+            print(j+1) # number of iteration
+            for i in x:
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    # otteniamo la current mean e std per samplare il nuovo y
+                    mean, std= gp.predict(i.reshape(1,-1), return_std=True)
+                    # sample il nuovo y
+                    y=norm.pdf(i, loc=mean, scale=std)
+                    # aggiungi la coppia (i, y) ai vettori del GP
+                    x_newobs=np.append(x_obs, i).reshape(-1,1)
+                    y_newobs=np.append(y_obs,y).reshape(-1,1)
+                    # re-fittiamo il gaussian process e calcoliamo il massimo valore della nuova media
+                    mu=posterior(gp, x_newobs, y_newobs, init.reshape(-1,1))
+                    mean_n1star[ii]= max(mu)
+                    #con minimize è troppo lento
+                    #mean_n1star[ii] = minimize(lambda t: -posterior(optimizer, x_newobs, y_newobs, t.reshape(-1,1))[0],
+                                               #init.reshape(-1, 1),
+                                               #method="L-BFGS-B")['fun']
+                    # diff è un vettore di lunghezza uguale alla lunghezza di x
+                    diff[ii] = (mean_n1star[ii]-mean_nstar)
+                    ii=ii+1
+            # a è una lista di vettori
+            a.append(diff)
+
+        # calcoliamo la MCMC stima per ciascuna componente    
+        sum_a=0 
+        for array in a:
+            sum_a += array
+
+        out = sum_a/J
+        print(len(out))
+        return(out)
 
 
 def load_logs(optimizer, logs):
