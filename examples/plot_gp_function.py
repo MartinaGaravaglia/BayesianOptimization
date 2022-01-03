@@ -7,6 +7,13 @@ import numpy as np
 
 import matplotlib.pyplot as plt
 from matplotlib import gridspec
+import sys
+import os 
+# current working directory
+path = os.getcwd()
+# parent directory
+parent = os.path.join(path, os.pardir)
+sys.path.append(os.path.abspath(parent))
 from bayes_opt1 import BayesianOptimization
 from bayes_opt1 import UtilityFunction
 
