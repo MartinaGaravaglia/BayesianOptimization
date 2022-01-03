@@ -147,10 +147,8 @@ class UtilityFunction(object):
             mu, sigma = gp.predict(grid, return_std=True)
             return mu
 
-        import warnings
-
         #print(optimizer.res)
-        a = []
+        list_diff = []
         x_obs = np.array([[res["params"]["x"]] for res in optimizer.res])
         y_obs = np.array([res["target"] for res in optimizer.res])
         # print(x_obs)
@@ -186,14 +184,14 @@ class UtilityFunction(object):
                     diff[ii] = (mean_n1star[ii]-mean_nstar)
                     ii=ii+1
             # a è una lista di vettori
-            a.append(diff)
+            list_diff.append(diff)
 
         # calcoliamo la MCMC stima per ciascuna componente    
-        sum_a=0 
-        for array in a:
-            sum_a += array
+        sum_list_diff=0 
+        for array in list_diff:
+            sum_list_diff += array
 
-        out = sum_a/J
+        out = sum_list_diff/J
         print(len(out))
         return(out)
 
