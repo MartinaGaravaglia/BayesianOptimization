@@ -158,7 +158,7 @@ class UtilityFunction(object):
         init = init.reshape(-1,1)
         mean_nstar = max(posterior(gp, x_obs, y_obs, init))
         #print(mean_nstar['fun'])
-        J = 10 
+        J = 20 
 
         for j in range(J):
             mean_n1star=np.zeros(len(x))
