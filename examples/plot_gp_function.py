@@ -59,6 +59,11 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
               #np.concatenate([mu1 - 1.9600 * sigma1, (mu1 + 1.9600 * sigma1)[::-1]]),
         #alpha=.6, fc='c', ec='None',color='purple', label='95% confidence interval')
     
+    fig.suptitle(
+        'Utility Functions After {} Steps'.format(steps-2),
+        fontdict={'size':50}
+    )
+    
     axis.set_xlim((min(x), max(x)))
     axis.set_ylim((None, None))
     axis.set_ylabel('f(x)', fontdict={'size':20})
@@ -158,6 +163,11 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     
     acq = plt.subplot()
     
+    fig.suptitle(
+        'Convergences to the optimum after 20 iterations',
+        fontdict={'size':50}
+    )
+    
     #kg_plt = plt.subplot(gs[])
     steps = len(optimizer1.space)
     #fig.suptitle(
@@ -171,8 +181,18 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     acq.plot(num_iter, point2, '*',markersize=15,markerfacecolor='green', markeredgecolor='k', markeredgewidth=1,label='EI',linestyle='solid',color='green')
     acq.plot(num_iter, point3, '*',markersize=15,markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1,label='PoI',linestyle='solid',color='orange')
     acq.set_ylim((min(min(point1),min(point2),min(point3)) - 0.5, max(max(point1),max(point2),max(point3)) + 0.5))
+    acq.axhline(y=x[np.argmax(target(x))], linestyle=':', label='Optimum to be achieved')
     acq.legend(loc=2, bbox_to_anchor=(1.01, 1), borderaxespad=0.)
-    acq.axhline(y=x[np.argmax(target(x))], linestyle=':')
+    
+    
+    # Integer on the x axes
+    a = range(0,21)
+    acq.set_xticks(a)
+    acq.set_yticks(range(-2,11))
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Suggested x')
+    
+    
     
     #EI
     #acq.plot(num_iter, point, '*',markersize=15,markerfacecolor='red', markeredgecolor='k', markeredgewidth=1,label='EI')
