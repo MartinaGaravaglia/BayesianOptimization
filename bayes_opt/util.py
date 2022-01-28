@@ -40,6 +40,10 @@ def acq_max(optimizer, ac, gp, y_max, bounds, random_state, n_warmup=10000, n_it
     :return: x_max, The arg max of the acquisition function.
     """
 
+
+    if acq == 'kg':
+        return minimize_kg_sgd(...)
+
     # Warm up with random points
     x_tries = random_state.uniform(bounds[:, 0], bounds[:, 1],
                                    size=(n_warmup, bounds.shape[0]))
@@ -107,8 +111,7 @@ class UtilityFunction(object):
             return self._ei(x, gp, y_max, self.xi)
         if self.kind == 'poi':
             return self._poi(x, gp, y_max, self.xi)
-        if self.kind == 'kg':
-            return self._kg(x, optimizer, gp, y_max)
+        
 
     @staticmethod
     def _ucb(x, gp, kappa):
@@ -169,7 +172,7 @@ class UtilityFunction(object):
                     # otteniamo la current mean e std per samplare il nuovo y
                     mean, std= gp.predict(i.reshape(1,-1), return_std=True)
                     # sample il nuovo y
-                    y=norm.pdf(i, loc=mean, scale=std)
+                    y=random.normal(loc=mean, scale=std)
                     # aggiungi la coppia (i, y) ai vettori del GP
                     x_newobs=np.append(x_obs, i).reshape(-1,1)
                     y_newobs=np.append(y_obs,y).reshape(-1,1)
