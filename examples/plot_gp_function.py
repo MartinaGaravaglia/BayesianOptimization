@@ -120,11 +120,11 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     point2=np.zeros(it)
     point3=np.zeros(it)
 
-        
+    utility_function1 = UtilityFunction(kind='ucb', kappa=5, xi=0)
+    utility_function2 = UtilityFunction(kind='ei', kappa=5, xi=0)
+    utility_function3 = UtilityFunction(kind='poi', kappa=5, xi=0)    
     for i in range(it):
-        utility_function1 = UtilityFunction(kind='ucb', kappa=5, xi=0)
-        utility_function2 = UtilityFunction(kind='ei', kappa=5, xi=0)
-        utility_function3 = UtilityFunction(kind='poi', kappa=5, xi=0)
+        
         utility1 = utility_function1.utility(x, optimizer1._gp, max(np.array([res["target"] for res in optimizer1.res])))
         utility2 = utility_function2.utility(x, optimizer2._gp, max(np.array([res["target"] for res in optimizer2.res])))
         utility3 = utility_function3.utility(x, optimizer3._gp, max(np.array([res["target"] for res in optimizer3.res])))
