@@ -70,13 +70,13 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     axis.set_xlabel('x', fontdict={'size':20})
     
     utility_function_ucb = UtilityFunction(kind="ucb", kappa=5, xi=0)
-    utility_ucb = utility_function_ucb.utility(x, optimizer1._gp, 0)
+    utility_ucb = utility_function_ucb.utility(x, optimizer1._gp, max(np.array([res["target"] for res in optimizer1.res])))
     
     utility_function_ei = UtilityFunction(kind="ei", kappa=5, xi=0)
-    utility_ei = utility_function_ei.utility(x, optimizer2._gp, 0)
+    utility_ei = utility_function_ei.utility(x, optimizer2._gp, max(np.array([res["target"] for res in optimizer2.res])))
     
     utility_function_poi = UtilityFunction(kind="poi", kappa=5, xi=0)
-    utility_poi = utility_function_poi.utility(x, optimizer3._gp, 0)
+    utility_poi = utility_function_poi.utility(x, optimizer3._gp, max(np.array([res["target"] for res in optimizer3.res])))
     
     
     # UCB
@@ -98,8 +98,7 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     acq.set_ylabel('Utility', fontdict={'size':20})
     acq.set_xlabel('x', fontdict={'size':20})
     
-    #plt.plot(x, y, color='grey', label='Objective function', linewidth=4, linestyle=':' )
-    #plt.axvline(x=x[np.argmax(y)], linestyle=':')
+
     
     axis.legend(loc=2, bbox_to_anchor=(1.01, 1), borderaxespad=0.)
     acq.legend(loc=2, bbox_to_anchor=(1.01, 1), borderaxespad=0.)
@@ -112,13 +111,7 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     x = x.reshape(-1,1)
     y = target(x)
     
-    #def suggest(utility, target, optimizer):
-        #next_point = optimizer.suggest(utility)
-        #target = target(**next_point)
-        #optimizer.register(params=next_point, target=target)
-    
-        #return target, next_point
-        #print(optimizer.max)
+
     it=20
     tar1=np.zeros(it)
     tar2=np.zeros(it)
@@ -132,9 +125,9 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
         utility_function1 = UtilityFunction(kind='ucb', kappa=5, xi=0)
         utility_function2 = UtilityFunction(kind='ei', kappa=5, xi=0)
         utility_function3 = UtilityFunction(kind='poi', kappa=5, xi=0)
-        utility1 = utility_function1.utility(x, optimizer1._gp, 0)
-        utility2 = utility_function2.utility(x, optimizer2._gp, 0)
-        utility3 = utility_function3.utility(x, optimizer3._gp, 0)
+        utility1 = utility_function1.utility(x, optimizer1._gp, max(np.array([res["target"] for res in optimizer1.res])))
+        utility2 = utility_function2.utility(x, optimizer2._gp, max(np.array([res["target"] for res in optimizer2.res])))
+        utility3 = utility_function3.utility(x, optimizer3._gp, max(np.array([res["target"] for res in optimizer3.res])))
         point1[i] = optimizer1.suggest(utility_function1)['x']
         point2[i] = optimizer2.suggest(utility_function2)['x']
         point3[i] = optimizer3.suggest(utility_function3)['x']
@@ -155,15 +148,12 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
         fontdict={'size':50}
     )
     
-    #kg_plt = plt.subplot(gs[])
+    
     steps = len(optimizer1.space)
-    #fig.suptitle(
-        #'Chosen points After {} Steps '.format(steps),
-        #fontdict={'size':30}
-    #)
+  
     
     num_iter=np.arange(1,it+1)
-    # UCB
+   
     acq.plot(num_iter, point1, '*',markersize=15,markerfacecolor='purple', markeredgecolor='k', markeredgewidth=1,label='UCB',linestyle='solid',color='purple')
     acq.plot(num_iter, point2, '*',markersize=15,markerfacecolor='green', markeredgecolor='k', markeredgewidth=1,label='EI',linestyle='solid',color='green')
     acq.plot(num_iter, point3, '*',markersize=15,markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1,label='PoI',linestyle='solid',color='orange')
