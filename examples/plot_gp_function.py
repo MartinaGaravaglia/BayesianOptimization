@@ -70,16 +70,14 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     axis.set_xlabel('x', fontdict={'size':20})
     
     utility_function_ucb = UtilityFunction(kind="ucb", kappa=5, xi=0)
-    utility_ucb = utility_function_ucb.utility(x, None, optimizer1._gp, 0)
+    utility_ucb = utility_function_ucb.utility(x, optimizer1._gp, 0)
     
     utility_function_ei = UtilityFunction(kind="ei", kappa=5, xi=0)
-    utility_ei = utility_function_ei.utility(x, None, optimizer2._gp, 0)
+    utility_ei = utility_function_ei.utility(x, optimizer2._gp, 0)
     
     utility_function_poi = UtilityFunction(kind="poi", kappa=5, xi=0)
-    utility_poi = utility_function_poi.utility(x, None, optimizer3._gp, 0)
+    utility_poi = utility_function_poi.utility(x, optimizer3._gp, 0)
     
-    #utility_function_kg = UtilityFunction(kind="kg", kappa=5, xi=0)
-    #utility_kg = utility_function_kg.utility(x, optimizer, optimizer._gp, 0)
     
     # UCB
     acq.plot(x, utility_ucb, label='UCB', color='purple')
@@ -92,11 +90,7 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     # Poi
     acq.plot(x, utility_poi, label='POI', color='orange')
     acq.plot(x[np.argmax(utility_poi)], np.max(utility_poi), '*', markersize=15, markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1)
-    
-    # KG
-    #acq.plot(x, utility_kg, label='KG', color='orange')
-    #acq.plot(x[np.argmax(utility_kg)], np.max(utility_kg), '*', markersize=15, markerfacecolor='orange', 
-             #markeredgecolor='k', markeredgewidth=1)
+
     
     
     acq.set_xlim((min(x), max(x)))
@@ -132,17 +126,15 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     point1=np.zeros(it)
     point2=np.zeros(it)
     point3=np.zeros(it)
-    opt=None
-    #if kind=='kg':
-        #opt=optimizer
+
         
     for i in range(it):
         utility_function1 = UtilityFunction(kind='ucb', kappa=5, xi=0)
         utility_function2 = UtilityFunction(kind='ei', kappa=5, xi=0)
         utility_function3 = UtilityFunction(kind='poi', kappa=5, xi=0)
-        utility1 = utility_function1.utility(x, opt, optimizer1._gp, 0)
-        utility2 = utility_function2.utility(x, opt, optimizer2._gp, 0)
-        utility3 = utility_function3.utility(x, opt, optimizer3._gp, 0)
+        utility1 = utility_function1.utility(x, optimizer1._gp, 0)
+        utility2 = utility_function2.utility(x, optimizer2._gp, 0)
+        utility3 = utility_function3.utility(x, optimizer3._gp, 0)
         point1[i] = optimizer1.suggest(utility_function1)['x']
         point2[i] = optimizer2.suggest(utility_function2)['x']
         point3[i] = optimizer3.suggest(utility_function3)['x']
@@ -152,12 +144,7 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
         optimizer1.register(params=point1[i], target=tar1[i])
         optimizer2.register(params=point2[i], target=tar2[i])
         optimizer3.register(params=point3[i], target=tar3[i])
-      
-    #print(point)
-    #print(tar)
-    #utility_function_kg = UtilityFunction(kind="kg", kappa=5, xi=0)
-    #utility_kg = utility_function_kg.utility(x, optimizer, optimizer._gp, 0)
-    #target_kg, point_kg = suggest(utility_function_kg, target, optimizer)
+
     
     fig = plt.figure(figsize=(13, 6))
     
@@ -193,45 +180,9 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     plt.ylabel('Suggested x')
     
     
-    
-    #EI
-    #acq.plot(num_iter, point, '*',markersize=15,markerfacecolor='red', markeredgecolor='k', markeredgewidth=1,label='EI')
-    #acq.set_ylim((min(point) - 0.5, max(point) + 0.5))
-    #acq.axvline(point=x[np.argmax(y)], linestyle=':')
-    #for i in range(it):
-        #acq.annotate(str(i+1), # this is the text
-                     #(point[i],tar[i]), # these are the coordinates to position the label
-                     #textcoords="offset points",
-                     #xytext=(0,10),# how to position the text
-                     #ha='center',
-                     #size=30) # horizontal alignment can be left, right or center
-    #acq.plot(x[np.argmax(utility_ucb)], np.max(utility_ucb), '*', markersize=15, markerfacecolor='purple', markeredgecolor='k', markeredgewidth=1)
-    """  
-    # EI
-    ei_plt.plot(point_ei, target_ei, '*',markersize=15,markerfacecolor='green', markeredgecolor='k', markeredgewidth=1,label='EI')
-    ei_plt.set_xlim((-10,10))
-    ei_plt.set_ylim((min(min(utility_ucb), min(utility_ei), min(utility_poi)) - 0.5, max(max(utility_ucb), max(utility_ei), max(utility_poi)) + 0.5))
-    ei_plt.axvline(x=x[np.argmax(y)], linestyle=':')
-     
-    #acq.plot(x[np.argmax(utility_ei)], np.max(utility_ei), '*', markersize=15, markerfacecolor='green', markeredgecolor='k', markeredgewidth=1)
-    
-    # Poi
-    poi_plt.plot(point_poi, target_poi, '*',markersize=15,markerfacecolor='blue', markeredgecolor='k', markeredgewidth=1,label='POI')
-    poi_plt.set_xlim((-10,10))
-    poi_plt.set_ylim((min(min(utility_ucb), min(utility_ei), min(utility_poi)) - 0.5, max(max(utility_ucb), max(utility_ei), max(utility_poi)) + 0.5))
-    poi_plt.axvline(x=x[np.argmax(y)], linestyle=':')
-    """
     plt.show()
 
-    #acq.plot(x[np.argmax(utility_poi)], np.max(utility_poi), '*', markersize=15, markerfacecolor='blue', markeredgecolor='k', markeredgewidth=1)
- 
-    
-  
-    # KG
-    #kg_plt.plot(point_kg, target_kg, label='KG', color='orange')
-    #acq.plot(x[np.argmax(utility_kg)], np.max(utility_kg), '*', markersize=15, markerfacecolor='orange', 
-            # markeredgecolor='k', markeredgewidth=1)
-    
+
     
     
     
