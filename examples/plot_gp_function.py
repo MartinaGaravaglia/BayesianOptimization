@@ -17,7 +17,12 @@ sys.path.append(os.path.abspath(parent))
 from bayes_opt1 import BayesianOptimization
 from bayes_opt1 import UtilityFunction
 
-def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
+
+def normalization(utility):
+    return (utility- min(utility)) / (max(utility) - min(utility))
+
+
+def plot_gp(optimizer1, optimizer2, optimizer3, x, target, params):
     x = x.reshape(-1,1)
     y = target(x)
     
@@ -69,32 +74,34 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     axis.set_ylabel('f(x)', fontdict={'size':20})
     axis.set_xlabel('x', fontdict={'size':20})
     
-    utility_function_ucb = UtilityFunction(kind="ucb", kappa=5, xi=0)
-    utility_ucb = utility_function_ucb.utility(x, optimizer1._gp, max(np.array([res["target"] for res in optimizer1.res])))
+    utility_function_ucb = UtilityFunction(kind="ucb", kappa = params['ucb']['kappa'], xi = params['ucb']['xi'])
+    utility_ucb = utility_function_ucb.utility(x, optimizer1._gp, 0)
     
-    utility_function_ei = UtilityFunction(kind="ei", kappa=5, xi=0)
-    utility_ei = utility_function_ei.utility(x, optimizer2._gp, max(np.array([res["target"] for res in optimizer2.res])))
+    utility_function_ei = UtilityFunction(kind="ei", kappa = params['ucb']['kappa'], xi = params['ei']['xi'])
+    utility_ei = utility_function_ei.utility(x, optimizer2._gp, optimizer2._space.target.max()) # max(np.array([res["target"] for res in optimizer2.res])
     
-    utility_function_poi = UtilityFunction(kind="poi", kappa=5, xi=0)
-    utility_poi = utility_function_poi.utility(x, optimizer3._gp, max(np.array([res["target"] for res in optimizer3.res])))
+    
+    #print(utility_ei)
+    utility_function_poi = UtilityFunction(kind="poi", kappa = params['ucb']['kappa'], xi = params['poi']['xi'])
+    utility_poi = utility_function_poi.utility(x, optimizer3._gp, optimizer3._space.target.max())
     
     
     # UCB
-    acq.plot(x, utility_ucb, label='UCB', color='purple')
-    acq.plot(x[np.argmax(utility_ucb)], np.max(utility_ucb), '*', markersize=15, markerfacecolor='purple', markeredgecolor='k', markeredgewidth=1)
+    acq.plot(x, normalization(utility_ucb), label='UCB', color='purple')
+    acq.plot(x[np.argmax(utility_ucb)], np.max(normalization(utility_ucb)), '*', markersize=15, markerfacecolor='purple', markeredgecolor='k', markeredgewidth=1)
     
     # EI
-    acq.plot(x, utility_ei, label='EI', color='green')
-    acq.plot(x[np.argmax(utility_ei)], np.max(utility_ei), '*', markersize=15, markerfacecolor='green', markeredgecolor='k', markeredgewidth=1)
+    acq.plot(x, normalization(utility_ei), label='EI', color='green')
+    acq.plot(x[np.argmax(utility_ei)], np.max(normalization(utility_ei)), '*', markersize=15, markerfacecolor='green', markeredgecolor='k', markeredgewidth=1)
     
     # Poi
-    acq.plot(x, utility_poi, label='POI', color='orange')
-    acq.plot(x[np.argmax(utility_poi)], np.max(utility_poi), '*', markersize=15, markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1)
+    acq.plot(x, normalization(utility_poi), label='POI', color='orange')
+    acq.plot(x[np.argmax(utility_poi)], np.max(normalization(utility_poi)), '*', markersize=15, markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1)
 
     
-    
+    #acq.set_ylim((min(utility_ei) - 0.0005, max(utility_ei) + 0.0005))
     acq.set_xlim((min(x), max(x)))
-    acq.set_ylim((min(min(utility_ucb), min(utility_ei), min(utility_poi)) - 0.5, max(max(utility_ucb), max(utility_ei), max(utility_poi)) + 0.5))
+    acq.set_ylim((-0.5,1.5)) #((min(min(utility_ucb), min(utility_ei), min(utility_poi)) - 0.5, max(max(utility_ucb), max(utility_ei), max(utility_poi)) + 0.5))
     acq.set_ylabel('Utility', fontdict={'size':20})
     acq.set_xlabel('x', fontdict={'size':20})
     
@@ -107,7 +114,7 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target):
     
     
     
-def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
+def plot_convergence(optimizer1,optimizer2,optimizer3, x, target, params):
     x = x.reshape(-1,1)
     y = target(x)
     
@@ -120,14 +127,12 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target):
     point2=np.zeros(it)
     point3=np.zeros(it)
 
-    utility_function1 = UtilityFunction(kind='ucb', kappa=5, xi=0)
-    utility_function2 = UtilityFunction(kind='ei', kappa=5, xi=0)
-    utility_function3 = UtilityFunction(kind='poi', kappa=5, xi=0)    
+    utility_function1 = UtilityFunction(kind='ucb', kappa = params['ucb']['kappa'], xi = params['ucb']['xi'])
+    utility_function2 = UtilityFunction(kind='ei', kappa = params['ucb']['kappa'], xi = params['ei']['xi'])
+    utility_function3 = UtilityFunction(kind='poi', kappa = params['ucb']['kappa'], xi = params['poi']['xi'])    
+    
     for i in range(it):
-        
-        utility1 = utility_function1.utility(x, optimizer1._gp, max(np.array([res["target"] for res in optimizer1.res])))
-        utility2 = utility_function2.utility(x, optimizer2._gp, max(np.array([res["target"] for res in optimizer2.res])))
-        utility3 = utility_function3.utility(x, optimizer3._gp, max(np.array([res["target"] for res in optimizer3.res])))
+
         point1[i] = optimizer1.suggest(utility_function1)['x']
         point2[i] = optimizer2.suggest(utility_function2)['x']
         point3[i] = optimizer3.suggest(utility_function3)['x']
