@@ -8,11 +8,53 @@ import numdifftools as nd
 from scipy.stats import norm
 from scipy.optimize import minimize
 import random
+from pyDOE import lhs
+
+
+def posterior(gp, x_obs, y_obs, grid):
+        '''
+        fits gaussian process on points (x_obs[i], y_obs[i]) and evaluates its mean on each point
+        in grid. Notice that "fit" method implemented in sklearn library is very expensive.
+        '''
+        gp.fit(x_obs, y_obs)
+        mu = gp.predict(grid, return_std=False)
+        return mu
+    
+def find_mean_max(x_obs,y_obs,gp,grid,mean=None,std=None,i=None):
+    '''
+    If i is None, then it means we are looking for what the paper called \mu^{*}_{n}, otherwise we want to
+    compute \mu^{*}_{n+1}.
+    Remark: i=None <=> mean=None <=> std=None
+    '''
+    # isinstance(i, type(None))
+    if i is None: # checks if i is None
+        x_newobs = x_obs
+        y_newobs = y_obs
+    else:
+        y=np.random.normal(loc=mean, scale=std)
+        x_newobs=np.concatenate((x_obs, i.reshape(1,-1)), axis = 0)
+        y_newobs=np.append(y_obs,y) 
+    mu=posterior(gp, x_newobs, y_newobs, grid)
+    return (max(mu),np.argmax(mu))
+    
+def grid_construction(pbounds, n_grid):
+    
+    dim = pbounds.shape[0]
+    init = [np.zeros(n_grid)] * dim
+    
+    for i in range(dim): 
+        init[i] = np.linspace(pbounds[i,0], pbounds[i,1], n_grid) # works \forall p
+
+    grid = np.meshgrid(*init) # list with p matrices n_grid x n_grid
+    for g in range(len(grid)):
+        grid[g] = grid[g].reshape(-1,1)
+    grid = np.stack(grid, axis = -1)
+    grid=grid[:,0,:] # array of shape (n_grid*n_grid, p): each row is composed of one element from init[0] and one element from init[1]
+    return grid
 
 
 # Latin Hypercube Sampling
-
-def our_lhs(p,R,pbounds):
+def our_lhs(n_points,pbounds):
     '''
     Performs hypercube sampling in the range defined in pbounds. In particular samples n vectors with p components.
     Library pyDOE needed.
@@ -20,18 +62,17 @@ def our_lhs(p,R,pbounds):
              2) pbounds will be turned into a p x 2 matrix. The second number is always equal to 2.
              3) seq is a R x p matrix.
              
-    To do  : 1) does this function work if p = 1?
     '''
-    from pyDOE import lhs
+    dim = pbounds.shape[0]
     if type(pbounds) is dict:
         bounds = np.array([np.array(t[1]) for t in pbounds.items()])
     else:
         bounds = pbounds
-    seq = lhs(p, R)
-    for ax in range(p):
+    seq = lhs(dim, n_points)
+    for ax in range(dim):
         m = min(bounds[ax,]) # len(bounds[ax,]) = 2 always \forall p
         M = max(bounds[ax,]) # len(bounds[ax,]) = 2 always \forall p
-        for i in range(R):
+        for i in range(n_points):
             seq[i,ax] = m + seq[i,ax]*(M-m)
     return seq
 
@@ -41,13 +82,13 @@ def our_lhs(p,R,pbounds):
 def _kg2(x, optimizer, gp, n_grid = 100, J = 300):
 
     
-    def x_obs_to_array(d, p):
+    def x_obs_to_array(d, dim):
         ''' 
         Transforms a dictionary d into an array out (used STRICTLY for x_obs)
          - d: input dictionary
          - p: number of coordinates (e.g. if we are working in R^6, then p = 6)
         '''
-        out = [np.zeros(p)] * len(d)
+        out = [np.zeros(dim)] * len(d)
         for i in range(len(d)):
             # d[i] is a vector with only one element --> d[i][0] is a dictionary
             v = d[i][0].items() 
@@ -55,70 +96,38 @@ def _kg2(x, optimizer, gp, n_grid = 100, J = 300):
         out = np.array(out)
         return out
     
-    def posterior(gp, x_obs, y_obs, grid):
-        '''
-        fits gaussian process on points (x_obs[i], y_obs[i]) and evaluates its mean on each point
-        in grid. Notice that "fit" method implemented in sklearn library is very expensive.
-        '''
-        gp.fit(x_obs, y_obs)
-        mu = gp.predict(grid, return_std=False)
-        return mu
     
-    def find_mean_max(x_obs,y_obs,gp,grid,mean=None,std=None,i=None):
-        '''
-        If i is None, then it means we are looking for what the paper called \mu^{*}_{n}, otherwise we want to
-        compute \mu^{*}_{n+1}.
-        Remark: i=None <=> mean=None <=> std=None
-        '''
-        if isinstance(i, type(None)): # checks if i is None
-            x_newobs = x_obs
-            y_newobs = y_obs
-        else:
-            y=np.random.normal(loc=mean, scale=std)
-            x_newobs=np.concatenate((x_obs, i.reshape(1,-1)), axis = 0)
-            y_newobs=np.append(y_obs,y) 
-        mu=posterior(gp, x_newobs, y_newobs, grid)
-        return (max(mu),np.argmax(mu))
     
-    p = optimizer._space.bounds.shape[0] # size of state space (e.g. if we are working on R^3, n = 3)
-    init = [np.zeros(n_grid)] * p # list of p vectors, each of lenght n_grid   
+    dim = optimizer._space.bounds.shape[0] # size of state space (e.g. if we are working on R^3, n = 3)
     x_obs_temp = np.array([[res["params"]] for res in optimizer.res]) 
     y_obs = np.array([res["target"] for res in optimizer.res])
-    # x_obs needs to be np.array of size (n,p)
+    # x_obs needs to be np.array of size (n,dim)
     # y_obs needs to be np.array of size (n,)
     # see https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.GaussianProcessRegressor.html
-    x_obs = x_obs_to_array(x_obs_temp, p)
+    x_obs = x_obs_to_array(x_obs_temp, dim)
     
-
-    for i in range(p): 
-        init[i] = np.linspace(optimizer._space.bounds[i,0], optimizer._space.bounds[i,1], n_grid) # works \forall p
-
-    grid = np.meshgrid(*init) # list with p matrices n_grid x n_grid
-    for g in range(len(grid)):
-        grid[g] = grid[g].reshape(-1,1)
-    grid = np.stack(grid, axis = -1)
-    grid=grid[:,0,:] # array of shape (n_grid*n_grid, p): each row is composed of one element from init[0] and one element from init[1]
-                
+    grid = grid_construction(optimizer._space.bounds, n_grid)
+                 
     temp = find_mean_max(x_obs,y_obs,gp,grid)
     mean_nstar = temp[0]
 
-    ii = 0
+    count = 0
     
-    if p == 1:
+    if dim == 1:
         x = np.array([x])
         
     diff = np.zeros(len(x))
-    for i in x:
-        print(ii+1)
-        mean, std= gp.predict(i.reshape(1,-1), return_std=True)
-        for j in range(J):
+    for x_new in x:
+        print(count+1)
+        mean, std= gp.predict(x_new.reshape(1,-1), return_std=True)
+        for j in range(J): # J = number of Monte Carlo iterations
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                temp = find_mean_max(x_obs,y_obs,gp,grid,mean,std,i)
+                temp = find_mean_max(x_obs,y_obs,gp,grid,mean,std,x_new)
                 mean_n1star = temp[0]
-                diff[ii] = diff[ii] + (mean_n1star-mean_nstar)
+                diff[count] = diff[count] + (mean_n1star-mean_nstar)
     #             print( ((ii + 1)/len(x)*100 , (j+1)/J*100) )
-        ii = ii + 1
+        count = count + 1
     diff = diff/J
     return diff
 
@@ -133,9 +142,9 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
     REMARK: if p == 1, then x needs to be a np.float
             if p > 1, then x needs to be a np.ndarray with of the form [,]
     '''
-    p = optimizer._space.bounds.shape[0]
+    dim = optimizer._space.bounds.shape[0]
     
-    if p == 1:
+    if dim == 1:
         if type(x) is not np.float64:
             sys.exit('Error in _kg4: if p=1, x needs to be a NP.float64')
     else:
@@ -145,13 +154,13 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
             if x.shape[0] > 1:
                 sys.exit('Error in _kg4: x needs to have 1 row and p columns.')
     
-    def x_obs_to_array(d, p):
+    def x_obs_to_array(d, dim):
         ''' 
         Transforms a dictionary d into an array out (used STRICTLY for x_obs)
          - d: input dictionary
          - p: number of coordinates (e.g. if we are working in R^6, then p = 6)
         '''
-        out = [np.zeros(p)] * len(d)
+        out = [np.zeros(dim)] * len(d)
         for i in range(len(d)):
             # d[i] is a vector with only one element --> d[i][0] is a dictionary
             v = d[i][0].items() 
@@ -159,30 +168,6 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
         out = np.array(out)
         return out
     
-    def posterior(gp, x_obs, y_obs, grid):
-        '''
-        fits gaussian process on points (x_obs[i], y_obs[i]) and evaluates its mean on each point
-        in grid. Notice that "fit" method implemented in sklearn library is very expensive.
-        '''
-        gp.fit(x_obs, y_obs)
-        mu = gp.predict(grid, return_std=False)
-        return mu
-    
-    def find_mean_max(x_obs,y_obs,gp,grid,mean=None,std=None,i=None):
-        '''
-        If i is None, then it means we are looking for what the paper called \mu^{*}_{n}, otherwise we want to
-        compute \mu^{*}_{n+1}.
-        Remark: i=None <=> mean=None <=> std=None
-        '''    
-        if isinstance(i, type(None)): # checks if i is None
-            x_newobs = x_obs
-            y_newobs = y_obs
-        else:
-            y=np.random.normal(loc=mean, scale=std)
-            x_newobs=np.concatenate((x_obs, i.reshape(1,-1)), axis = 0)
-            y_newobs=np.append(y_obs,y)
-        mu=posterior(gp, x_newobs, y_newobs, grid)
-        return (max(mu),np.argmax(mu))
     
     def mu_x_star_hat(x_obs,y_obs,gp,x_star_hat,mean,std,i):
         '''
@@ -197,23 +182,15 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
         mu=posterior(gp, x_newobs, y_newobs, x_star_hat)
         return np.asscalar(mu)
     
-    p = optimizer._space.bounds.shape[0] # size of state space (e.g. if we are working on R^3, n = 3)
-    init = [np.zeros(n_grid)] * p # list of p vectors, each of lenght n_grid   
+    dim = optimizer._space.bounds.shape[0] # size of state space (e.g. if we are working on R^3, n = 3) 
     x_obs_temp = np.array([[res["params"]] for res in optimizer.res]) 
     y_obs = np.array([res["target"] for res in optimizer.res])
     # x_obs needs to be np.array of size (n,p)
     # y_obs needs to be np.array of size (n,)
     # see https://scikit-learn.org/stable/modules/generated/sklearn.gaussian_process.GaussianProcessRegressor.html
-    x_obs = x_obs_to_array(x_obs_temp, p)
+    x_obs = x_obs_to_array(x_obs_temp, dim)
 
-    for i in range(p): 
-        init[i] = np.linspace(optimizer._space.bounds[i,0], optimizer._space.bounds[i,1], n_grid) # works \forall p
-
-    grid = np.meshgrid(*init) # list with p matrices n_grid x n_grid
-    for g in range(len(grid)):
-        grid[g] = grid[g].reshape(-1,1)
-    grid = np.stack(grid, axis = -1)
-    grid=grid[:,0,:] # array of shape (n_grid*n_grid, p): each row is composed of one element from init[0] and one element from init[1]
+    grid = grid_construction(optimizer._space.bounds, n_grid)
     
     temp = find_mean_max(x_obs,y_obs,gp,grid)
     mean_nstar = temp[0]
@@ -231,7 +208,7 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
                 return mu_x_star_hat(x_obs,y_obs,gp,x_star_hat,mean,std,w)
             
             grad_temp.append(nd.Gradient(func)(x))
-    grad = np.zeros(p)
+    grad = np.zeros(dim)
     for i in grad_temp:
         grad = grad + i
     grad = grad/J
@@ -240,21 +217,21 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
 
 
 # Implementation algorithm 3 (Frazier): Knowledge gradient 
-def minimize_kg_sgd(R, T, a, p, pbounds, optimizer, gp):
+def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
 
     alpha = np.zeros(T)
     KG = np.zeros(R)
-    temp = our_lhs(p,R,pbounds)
+    init_lhs = our_lhs(R,pbounds)
+    dim = pbounds.shape[0]
     
-    if p == 1:
+    if dim == 1:
         
         x0 = np.zeros((T,R)) 
         
         for r in range(R):
             # choose x0(r) uniformly random from A
-            t=0
 
-            x0[t,r] = temp[r]
+            x0[0,r] = init_lhs[r]
 
             for t in range(T-1):
                 #print(x0[(t+1)*r].reshape(1,-1))
@@ -270,9 +247,8 @@ def minimize_kg_sgd(R, T, a, p, pbounds, optimizer, gp):
 
         for r in range(R):
             # choose x0(r) uniformly random from A
-            t=0
 
-            x0.append(temp[r].reshape(-1,1)) 
+            x0.append(init_lhs[r].reshape(-1,1)) 
 
             for t in range(T-1):
                 print(x0[(t+1)*r].reshape(1,-1))
@@ -282,9 +258,7 @@ def minimize_kg_sgd(R, T, a, p, pbounds, optimizer, gp):
             #print(type(x0[T-1,r]))        
             KG[r] = _kg2(x0[(T-1)*r].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
 
-    for i in range(R):
-        if KG[i] == np.max(KG):
-            return x0[i]
+    return x0[np.argmax(KG)]
     
     
 
@@ -323,12 +297,10 @@ def acq_max(optimizer, ac, gp, y_max, bounds, random_state, n_warmup=10000, n_it
     -------
     :return: x_max, The arg max of the acquisition function.
     """
-
-    p = bounds.shape[0]
     
      
     if ac(None, optimizer, gp, y_max=0) == 'kg': 
-        return minimize_kg_sgd(R, T, a, p, bounds, optimizer, gp)
+        return minimize_kg_sgd(R, T, a, bounds, optimizer, gp)
 
     # Warm up with random points
     x_tries = random_state.uniform(bounds[:, 0], bounds[:, 1],
