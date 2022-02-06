@@ -22,7 +22,7 @@ def normalization(utility):
     return (utility- min(utility)) / (max(utility) - min(utility))
 
 
-def plot_gp(optimizer1, optimizer2, optimizer3, x, target, params):
+def plot_gp(optimizer1, optimizer2, optimizer3, x, target, params, n_init=2):
     x = x.reshape(-1,1)
     y = target(x)
     
@@ -65,7 +65,7 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target, params):
         #alpha=.6, fc='c', ec='None',color='purple', label='95% confidence interval')
     
     fig.suptitle(
-        'Utility Functions After {} Steps'.format(steps-2),
+        'Utility Functions After {} Steps'.format(steps-n_init),
         fontdict={'size':50}
     )
     
@@ -114,7 +114,7 @@ def plot_gp(optimizer1, optimizer2, optimizer3, x, target, params):
     
     
     
-def plot_convergence(optimizer1,optimizer2,optimizer3, x, target, params):
+def plot_convergence(optimizer1,optimizer2,optimizer3, x, target, params, it=20):
     x = x.reshape(-1,1)
     y = target(x)
     
@@ -149,7 +149,7 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target, params):
     acq = plt.subplot()
     
     fig.suptitle(
-        'Convergences to the optimum after 20 iterations',
+        'Convergences to the optimum after {} iterations'.format(it),
         fontdict={'size':50}
     )
     
@@ -178,6 +178,82 @@ def plot_convergence(optimizer1,optimizer2,optimizer3, x, target, params):
     plt.show()
 
 
+# Plot regret
+
+def simple_regret(f_max, optimizer):
+    """
+    The simple regret rT = max{x∈X} f(x) − max{t∈[1,T]} f(x_t) measures the value of
+the best queried point so far. 
+    """
+    return f_max-optimizer._space.target.max()
+
+def plot_simple_regret(optimizer1,optimizer2,optimizer3, x, target, params, it=20):
+    
+    x = x.reshape(-1,1)
+    y = target(x)
+    f_max=max(y)
+
+    tar1=np.zeros(it)
+    tar2=np.zeros(it)
+    tar3=np.zeros(it)
+    point1=np.zeros(it)
+    point2=np.zeros(it)
+    point3=np.zeros(it)
+    regret1=np.zeros(it)
+    regret2=np.zeros(it)
+    regret3=np.zeros(it)
+    
+    utility_function1 = UtilityFunction(kind='ucb', kappa = params['ucb']['kappa'], xi = params['ucb']['xi'])
+    utility_function2 = UtilityFunction(kind='ei', kappa = params['ucb']['kappa'], xi = params['ei']['xi'])
+    utility_function3 = UtilityFunction(kind='poi', kappa = params['ucb']['kappa'], xi = params['poi']['xi'])    
+    for i in range(it):
+
+        point1[i] = optimizer1.suggest(utility_function1)['x']
+        point2[i] = optimizer2.suggest(utility_function2)['x']
+        point3[i] = optimizer3.suggest(utility_function3)['x']
+        tar1[i]= target(point1[i])
+        tar2[i]= target(point2[i])
+        tar3[i]= target(point3[i])
+        optimizer1.register(params=point1[i], target=tar1[i])
+        optimizer2.register(params=point2[i], target=tar2[i])
+        optimizer3.register(params=point3[i], target=tar3[i])
+        regret1[i] = simple_regret(f_max, optimizer1)
+        regret2[i] = simple_regret(f_max, optimizer2)
+        regret3[i] = simple_regret(f_max, optimizer3)
+
+    
+    fig = plt.figure(figsize=(13, 6))
+    
+    acq = plt.subplot()
+    
+    fig.suptitle(
+        'Simple regret after {} iterations'.format(it),
+        fontdict={'size':50}
+    )
+    
+    
+    steps = len(optimizer1.space)
+  
+    
+    num_iter=np.arange(1,it+1)
+   
+    acq.plot(num_iter, regret1, '*',markersize=15,markerfacecolor='purple', markeredgecolor='k', markeredgewidth=1,label='UCB',linestyle='solid',color='purple')
+    acq.plot(num_iter, regret2, '*',markersize=15,markerfacecolor='green', markeredgecolor='k', markeredgewidth=1,label='EI',linestyle='solid',color='green')
+    acq.plot(num_iter, regret3, '*',markersize=15,markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1,label='PoI',linestyle='solid',color='orange')
+    acq.set_ylim((-0.2,1))
+    acq.axhline(y=0, linestyle=':', label='Optimum to be achieved')
+    acq.legend(loc=2, bbox_to_anchor=(1.01, 1), borderaxespad=0.)
+    
+    
+    # Integer on the x axes
+    a = range(0,21)
+    acq.set_xticks(a)
+    
+    plt.xlabel('Number of iterations')
+    plt.ylabel('Simple regret')
+    
+    
+    plt.show()
     
     
     
