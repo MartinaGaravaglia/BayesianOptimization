@@ -145,14 +145,13 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
     dim = optimizer._space.bounds.shape[0]
     
     if dim == 1:
-        if type(x) is not np.float64:
-            sys.exit('Error in _kg4: if p=1, x needs to be a NP.float64')
-    else:
-        if type(x) is not np.ndarray:
-            sys.exit('Error in _kg4: if p>1, x needs to be a NP.ndarray')
-        if len(x.shape) > 1:
-            if x.shape[0] > 1:
-                sys.exit('Error in _kg4: x needs to have 1 row and p columns.')
+        x = np.array(x)
+
+    if type(x) is not np.ndarray:
+        sys.exit('Error in _kg4: if p>1, x needs to be a NP.ndarray')
+    if len(x.shape) > 1:
+        if x.shape[0] > 1:
+            sys.exit('Error in _kg4: x needs to have 1 row and p columns.')
     
     def x_obs_to_array(d, dim):
         ''' 
@@ -219,27 +218,34 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
 # Implementation algorithm 3 (Frazier): Knowledge gradient 
 def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
 
-    alpha = np.zeros(T)
     KG = np.zeros(R)
     init_lhs = our_lhs(R,pbounds)
     dim = pbounds.shape[0]
-    
+
     if dim == 1:
         
-        x0 = np.zeros((T,R)) 
+        out = np.zeros(1)
+        x0 = np.zeros((T+1,R)) 
         
         for r in range(R):
             # choose x0(r) uniformly random from A
 
             x0[0,r] = init_lhs[r]
 
-            for t in range(T-1):
+            for t in range(1,T+1):
                 #print(x0[(t+1)*r].reshape(1,-1))
-                G = _kg4(x0[t,r], optimizer, gp, n_grid = 50, J = 5)
-                alpha[t+1] = a/(a+t+1)
-                x0[t+1,r] = x0[t,r] + alpha[t+1]*G
+                G = _kg4(x0[t-1,r], optimizer, gp, n_grid = 50, J = 5)
+                alpha = a/(a+t)
+                x0[t,r] = x0[t-1,r] + alpha*G
             #print(type(x0[T-1,r]))        
-            KG[r] = _kg2(x0[T-1,r], optimizer, gp, n_grid = 50, J = 5)
+            KG[r] = _kg2(x0[T,r], optimizer, gp, n_grid = 50, J = 5)
+        
+        #print(type(x0[T, np.argmax(KG)]))
+        #print(np.array(x0[T, np.argmax(KG)]).shape)
+
+        out[0] = x0[T, np.argmax(KG)]
+        
+        return out 
 
 
     else:
@@ -248,17 +254,20 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
         for r in range(R):
             # choose x0(r) uniformly random from A
 
-            x0.append(init_lhs[r].reshape(-1,1)) 
-
-            for t in range(T-1):
-                print(x0[(t+1)*r].reshape(1,-1))
-                G = _kg4(x0[(t+1)*r].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
-                alpha[t+1] = a/(a+t+1)
-                x0.append(x0[(t+1)*r] + alpha[t+1]*G)
+            x0.append(init_lhs[r].reshape(1,-1)) 
+            #print(init_lhs[r].reshape(1,-1))
+            for t in range(1,T+1):
+                print(x0[(t-1)+T*(r)].reshape(1,-1))
+                G = _kg4(x0[(t-1)+T*(r)].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
+                alpha = a/(a+t)
+                x0.append(x0[(t-1)+T*(r)] + alpha*G)
             #print(type(x0[T-1,r]))        
-            KG[r] = _kg2(x0[(T-1)*r].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
-
-    return x0[np.argmax(KG)]
+            KG[r] = _kg2(x0[T*r].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
+    
+        
+        out = x0[T*np.argmax(KG)].reshape(1,-1)
+        #print(len(out[0]))
+        return out[0]
     
     
 
