@@ -102,10 +102,18 @@ class BayesianOptimization(Observable):
     set_bounds()
         Allows changing the lower and upper searching bounds
     """
-    def __init__(self, f, pbounds, random_state=None, verbose=2,
-                 bounds_transformer=None):
+    def __init__(self, f_temp, pbounds, random_state=None, verbose=2,
+                 bounds_transformer=None, noise=None):
         self._random_state = ensure_rng(random_state)
-
+        self.func = f_temp
+        
+        if noise is not None:     
+            def f(x):
+                return self.func(x) + np.random.normal(0, noise)
+        else:
+            def f(x):
+                return self.func(x)
+            
         # Data structure containing the function to be optimized, the bounds of
         # its domain, and a record of the evaluations we have done so far
         self._space = TargetSpace(f, pbounds, random_state)
