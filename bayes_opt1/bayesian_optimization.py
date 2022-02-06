@@ -1,4 +1,5 @@
 import warnings
+import numpy as np
 
 from .target_space import TargetSpace
 from .event import Events, DEFAULT_EVENTS
