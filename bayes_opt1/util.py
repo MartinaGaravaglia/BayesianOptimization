@@ -126,7 +126,6 @@ def _kg2(x, optimizer, gp, n_grid = 100, J = 300):
                 temp = find_mean_max(x_obs,y_obs,gp,grid,mean,std,x_new)
                 mean_n1star = temp[0]
                 diff[count] = diff[count] + (mean_n1star-mean_nstar)
-    #             print( ((ii + 1)/len(x)*100 , (j+1)/J*100) )
         count = count + 1
     diff = diff/J
     return diff
@@ -233,15 +232,10 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
             x0[0,r] = init_lhs[r]
 
             for t in range(1,T+1):
-                #print(x0[(t+1)*r].reshape(1,-1))
                 G = _kg4(x0[t-1,r], optimizer, gp, n_grid = 50, J = 5)
                 alpha = a/(a+t)
                 x0[t,r] = x0[t-1,r] + alpha*G
-            #print(type(x0[T-1,r]))        
             KG[r] = _kg2(x0[T,r], optimizer, gp, n_grid = 50, J = 5)
-        
-        #print(type(x0[T, np.argmax(KG)]))
-        #print(np.array(x0[T, np.argmax(KG)]).shape)
 
         out[0] = x0[T, np.argmax(KG)]
         
@@ -255,18 +249,14 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
             # choose x0(r) uniformly random from A
 
             x0.append(init_lhs[r].reshape(1,-1)) 
-            #print(init_lhs[r].reshape(1,-1))
             for t in range(1,T+1):
-                print(x0[(t-1)+T*(r)].reshape(1,-1))
                 G = _kg4(x0[(t-1)+T*(r)].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
                 alpha = a/(a+t)
-                x0.append(x0[(t-1)+T*(r)] + alpha*G)
-            #print(type(x0[T-1,r]))        
+                x0.append(x0[(t-1)+T*(r)] + alpha*G)      
             KG[r] = _kg2(x0[T*r].reshape(1,-1), optimizer, gp, n_grid = 50, J = 5)
     
         
         out = x0[T*np.argmax(KG)].reshape(1,-1)
-        #print(len(out[0]))
         return out[0]
     
     
