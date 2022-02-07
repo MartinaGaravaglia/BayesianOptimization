@@ -241,7 +241,7 @@ def plot_simple_regret(optimizer1,optimizer2,optimizer3, x, target, params, it=2
     acq.plot(num_iter, regret2, '*',markersize=15,markerfacecolor='green', markeredgecolor='k', markeredgewidth=1,label='EI',linestyle='solid',color='green')
     acq.plot(num_iter, regret3, '*',markersize=15,markerfacecolor='orange', markeredgecolor='k', markeredgewidth=1,label='PoI',linestyle='solid',color='orange')
     acq.set_ylim((-0.2,1))
-    acq.axhline(y=0, linestyle=':', label='Optimum to be achieved')
+    acq.axhline(y=0, linestyle=':', label='0.0')
     acq.legend(loc=2, bbox_to_anchor=(1.01, 1), borderaxespad=0.)
     
     
