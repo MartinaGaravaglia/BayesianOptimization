@@ -108,11 +108,17 @@ class BayesianOptimization(Observable):
         self.func = f_temp
         
         if noise is not None:     
-            def f(x):
-                return self.func(x) + np.random.normal(0, noise)
+            def f(**args):
+                inputs = []
+                for i,k in args.items():
+                    inputs.append(k)
+                return self.func(*inputs) + np.random.normal(0, noise)
         else:
-            def f(x):
-                return self.func(x)
+            def f(**args):
+                inputs = []
+                for i,k in args.items():
+                    inputs.append(k)
+                return self.func(*inputs)
             
         # Data structure containing the function to be optimized, the bounds of
         # its domain, and a record of the evaluations we have done so far

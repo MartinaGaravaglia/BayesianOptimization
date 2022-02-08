@@ -182,30 +182,57 @@ the best queried point so far.
     """
     return f_max-optimizer._space.target.max()
 
-def plot_simple_regret(optimizers, x, target, params, it=20):
+def plot_simple_regret(optimizers, x, target, params, dim, it=20):
     
-    x = x.reshape(-1,1)
-    y = target(x)
-    f_max=max(y)
-    
-    tar={}
-    points={}
-    utility_function={}
-    regrets={}
-    
-    for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
-        points[acq]=np.zeros(it)
-        tar[acq]= np.zeros(it)
-        regrets[acq]=np.zeros(it)
-        utility_function[acq] = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
-            
-    for i in range(it):
-        for acq, optimizer in optimizers.items():
-            points[acq][i]=optimizer.suggest(utility_function[acq])['x']
-            tar[acq][i]= target(points[acq][i])
-            optimizer.register(params=points[acq][i], target=tar[acq][i])
-            regrets[acq][i]= simple_regret(f_max, optimizer)
-    
+    if dim > 1:
+        inputs = []
+        for col in range(dim):
+            inputs.append(x[:,col])
+        y = target(*inputs)
+
+
+        f_max=max(y)
+
+        tar={}
+        points={}
+        utility_function={}
+        regrets={}
+
+
+        for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
+            regrets[acq]=np.zeros(it)
+            utility_function[acq] = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
+
+        for i in range(it):
+            for acq, optimizer in optimizers.items():
+                points[acq]=optimizer.suggest(utility_function[acq])
+                tar[acq]= target(**points[acq])
+                optimizer.register(params=points[acq], target=tar[acq])
+                regrets[acq][i]= simple_regret(f_max, optimizer)
+    else:
+        x = x.reshape(-1,1)
+        y = target(x)
+        
+        f_max=max(y)
+
+        tar={}
+        points={}
+        utility_function={}
+        regrets={}
+
+        for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
+            points[acq]=np.zeros(it)
+            tar[acq]= np.zeros(it)
+            regrets[acq]=np.zeros(it)
+            utility_function[acq] = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
+
+        for i in range(it):
+            for acq, optimizer in optimizers.items():
+                points[acq][i]=optimizer.suggest(utility_function[acq])['x']
+                tar[acq][i]= target(points[acq][i])
+                optimizer.register(params=points[acq][i], target=tar[acq][i])
+                regrets[acq][i]= simple_regret(f_max, optimizer)
+
     
     fig = plt.figure(figsize=(13, 6))
     
