@@ -35,7 +35,8 @@ def plot_gp(optimizers, x, target, params, n_init=2):
         return mu, sigma
     
     fig = plt.figure(figsize=(16, 10))
-    steps = len(list(optimizers.values())[0].space)
+    #steps = len(list(optimizers.values())[0].space)
+    steps = len(optimizers[0].space)
   
     gs = gridspec.GridSpec(2, 1, height_ratios=[2, 2]) 
     axis = plt.subplot(gs[0])
@@ -43,24 +44,47 @@ def plot_gp(optimizers, x, target, params, n_init=2):
     n = len(optimizers)
     colmap = plt.cm.get_cmap(name='rainbow', lut=n)
     
+    '''
     x_obs = {}  # dizionario vuoto
-    y_obs={}
+    y_obs = {}
     mu={}
     sigma={}
-    utility_function={}
     utility={}
-    for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
-        x_obs[acq] = np.array([[res["params"]["x"]] for res in optimizer.res])
-        y_obs[acq]=  np.array([res["target"] for res in optimizer.res])
-        mu[acq], sigma[acq] = posterior(optimizer, x_obs[acq], y_obs[acq], x)
-        utility_function[acq] = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
-        utility[acq] = utility_function[acq].utility(x, optimizer._gp, optimizer._space.target.max())
+    acq=['ucb', 'ei', 'poi']
+    count=0
+    for optimizer in optimizers:  # acq è la stringa-chiave, optimizer è l'oggetto
+        utility_function={}
+        x_obs[acq[count]] = np.array([[res["params"]["x"]] for res in optimizer.res])
+        y_obs[acq[count]] =  np.array([res["target"] for res in optimizer.res])
+        mu[acq[count]], sigma[acq[count]] = posterior(optimizer, x_obs[acq[count]], y_obs[acq[count]], x)
+        utility_function[acq[count]] = UtilityFunction(kind=acq[count], kappa = params[acq[count]]['kappa'], xi = params[acq[count]]['xi'])
+        utility[acq[count]] = utility_function[acq[count]].utility(x, optimizer._gp, optimizer._space.target.max())
+        count = count+1
+'''
+    
+    x_obs = []
+    y_obs = []
+    mu=[]
+    sigma=[]
+    utility=[]
+    
+    acq = ['ucb', 'ei', 'poi']
+    for i, optimizer in enumerate(optimizers): # enumerate applicata a iterable -> sia valore che indice
+        x_obs.append(np.array([[res["params"]["x"]] for res in optimizer.res]))
+        y_obs.append(np.array([res["target"] for res in optimizer.res]))
+        mu_temp, sigma_temp = posterior(optimizer, x_obs[i], y_obs[i], x)
+        mu.append(mu_temp)
+        sigma.append(sigma_temp)
+        utility_function = UtilityFunction(kind=acq[i], kappa = params[acq[i]]['kappa'], xi = params[acq[i]]['xi'])
+        utility.append(utility_function.utility(x, optimizer._gp, optimizer._space.target.max()))
+        
 
+    
     axis.plot(x, y, linewidth=3, label='Target')
-    i=0 #indice per i colori
-    for acq, mean in mu.items():
-        axis.plot(x, mean, '--', color= colmap(i), label='Prediction {}'.format(acq) )
-        i=i+1
+
+    for i, mean in enumerate(mu):
+        axis.plot(x, mean, '--', color= colmap(i), label='Prediction {}'.format(acq[i]) )
+
     
     fig.suptitle(
         'Utility Functions After {} Steps'.format(steps-n_init),
@@ -72,11 +96,11 @@ def plot_gp(optimizers, x, target, params, n_init=2):
     axis.set_ylabel('f(x)', fontdict={'size':20})
     axis.set_xlabel('x', fontdict={'size':20})
  
-    i=0
-    for acq, util in utility.items():
-        af.plot(x, normalization(util), label=acq, color= colmap(i))
+
+    for i, util in enumerate(utility):
+        af.plot(x, normalization(util), label=acq[i], color= colmap(i))
         af.plot(x[np.argmax(util)], np.max(normalization(util)), '*', markersize=15, markerfacecolor=colmap(i), markeredgecolor='k', markeredgewidth=1)
-        i=i+1
+
 
     af.set_xlim((min(x), max(x)))
     af.set_ylim((-0.5,1.5))
@@ -98,23 +122,12 @@ def plot_convergence(optimizers, x, target, params, it=20):
     
     tar={}
     points={}
-    """
-    tar1=np.zeros(it)
-    tar2=np.zeros(it)
-    tar3=np.zeros(it)
-    point1=np.zeros(it)
-    point2=np.zeros(it)
-    point3=np.zeros(it)
-    """
+
     utility_function={}
     for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
         utility_function[acq] = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
         
-    """
-    utility_function1 = UtilityFunction(kind='ucb', kappa = params['ucb']['kappa'], xi = params['ucb']['xi'])
-    utility_function2 = UtilityFunction(kind='ei', kappa = params['ucb']['kappa'], xi = params['ei']['xi'])
-    utility_function3 = UtilityFunction(kind='poi', kappa = params['ucb']['kappa'], xi = params['poi']['xi'])    
-    """
+
     for acq, optimizer in optimizers.items():
             points[acq]=np.zeros(it)
             tar[acq]= np.zeros(it)
@@ -124,17 +137,7 @@ def plot_convergence(optimizers, x, target, params, it=20):
             points[acq][i]=optimizer.suggest(utility_function[acq])['x']
             tar[acq][i]= target(points[acq][i])
             optimizer.register(params=points[acq][i], target=tar[acq][i])
-        """
-        point1[i] = optimizer1.suggest(utility_function1)['x']
-        point2[i] = optimizer2.suggest(utility_function2)['x']
-        point3[i] = optimizer3.suggest(utility_function3)['x']
-        tar1[i]= target(point1[i])
-        tar2[i]= target(point2[i])
-        tar3[i]= target(point3[i])
-        optimizer1.register(params=point1[i], target=tar1[i])
-        optimizer2.register(params=point2[i], target=tar2[i])
-        optimizer3.register(params=point3[i], target=tar3[i])
-        """
+
     
     fig = plt.figure(figsize=(13, 6))
     
@@ -184,6 +187,11 @@ the best queried point so far.
 
 def plot_simple_regret(optimizers, x, target, params, dim, it=20):
     
+    tar={}
+    points={}
+    utility_function={}
+    regrets={}
+    
     if dim > 1:
         inputs = []
         for col in range(dim):
@@ -192,12 +200,6 @@ def plot_simple_regret(optimizers, x, target, params, dim, it=20):
 
 
         f_max=max(y)
-
-        tar={}
-        points={}
-        utility_function={}
-        regrets={}
-
 
         for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
             regrets[acq]=np.zeros(it)
@@ -214,11 +216,6 @@ def plot_simple_regret(optimizers, x, target, params, dim, it=20):
         y = target(x)
         
         f_max=max(y)
-
-        tar={}
-        points={}
-        utility_function={}
-        regrets={}
 
         for acq, optimizer in optimizers.items():  # acq è la stringa-chiave, optimizer è l'oggetto
             points[acq]=np.zeros(it)
@@ -260,8 +257,8 @@ def plot_simple_regret(optimizers, x, target, params, dim, it=20):
     
     
     # Integer on the x axes
-    a = range(0,21)
-    af.set_xticks(a)
+    
+    af.set_xticks(num_iter)
     
     plt.xlabel('Number of iterations')
     plt.ylabel('Simple regret')
