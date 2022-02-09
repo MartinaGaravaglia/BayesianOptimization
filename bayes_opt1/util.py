@@ -1,5 +1,4 @@
 import sys
-import warnings
 import numpy as np
 import warnings
 from pyDOE import lhs
@@ -7,8 +6,6 @@ import numdifftools as nd
 
 from scipy.stats import norm
 from scipy.optimize import minimize
-import random
-from pyDOE import lhs
 
 
 def x_obs_to_array(d, dim):
@@ -39,9 +36,9 @@ def find_mean_max(x_obs,y_obs,gp,grid,mean=None,std=None,x=None):
     '''
     If i is None, then it means we are looking for what the paper called \mu^{*}_{n}, otherwise we want to
     compute \mu^{*}_{n+1}.
-    Remark: i=None <=> mean=None <=> std=None
+    Remark: x=None <=> mean=None <=> std=None
     '''
-    # isinstance(i, type(None))
+    # isinstance(x, type(None))
     if x is None: # checks if x is None
         x_newobs = x_obs
         y_newobs = y_obs
@@ -55,12 +52,12 @@ def find_mean_max(x_obs,y_obs,gp,grid,mean=None,std=None,x=None):
 def grid_construction(pbounds, n_grid):
     
     dim = pbounds.shape[0]
-    init = [] #[np.zeros(n_grid)] * dim
+    init = []
     
     for i in range(dim): 
-        init.append(np.linspace(pbounds[i,0], pbounds[i,1], n_grid)) #= np.linspace(pbounds[i,0], pbounds[i,1], n_grid) # works \forall p
+        init.append(np.linspace(pbounds[i,0], pbounds[i,1], n_grid)) 
 
-    grid = np.meshgrid(*init) # list with p matrices n_grid x n_grid
+    grid = np.meshgrid(*init) 
     for g in range(len(grid)):
         grid[g] = grid[g].reshape(-1,1)
     grid = np.stack(grid, axis = -1)
@@ -204,24 +201,20 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
     dim = pbounds.shape[0]
     x_T = []
     
+    temp_lhs = our_lhs(R, pbounds)
     for r in range(R):
-        x_t = our_lhs(1, pbounds)[0]
+        x_t = temp_lhs[r]
         for t in range(T):
             G = _kg4(x_t, optimizer, gp, n_grid = 10, J = 2) 
             alpha = a/(a+t+1)
             x_t_new = x_t + alpha * G
-            #print("G =",G)
-            #print("x0 =",x0)
-            #print("x_new =", x_new)
             x_t = x_t_new
         x_T.append(x_t_new)
 
     kg = np.zeros(len(x_T))
     
     for i in range(len(x_T)):
-        #print("x_T =", x_T[i])
         kg[i] = _kg2(x_T[i].reshape(1,-1), optimizer, gp, n_grid = 10, J = 2)
-        #print("kg =", kg[i])
 
     return x_T[np.argmax(kg)] # WITHOUT reshape
     
