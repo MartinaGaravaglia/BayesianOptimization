@@ -180,6 +180,7 @@ class BayesianOptimization(Observable):
 
         # Finding argmax of the acquisition function.
         suggestion = acq_max(
+            self,
             ac=utility_function.utility,
             gp=self._gp,
             y_max=self._space.target.max(),
