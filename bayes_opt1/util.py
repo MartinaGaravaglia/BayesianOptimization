@@ -247,3 +247,4 @@ class Colours:
     def yellow(cls, s):
         """Wrap text in yellow."""
         return cls._wrap_colour(s, cls.YELLOW)
+
