@@ -108,12 +108,13 @@ def _kg2(x, optimizer, gp, n_grid = 100, J = 300):
 
     count = 0
     
-    if dim == 1:
+    if dim == 1 and type(x) is not np.ndarray:
         x = np.array([x])
         
     diff = np.zeros(len(x))
     for x_new in x:
-        print(count+1)
+        if count%20 == 0:
+            print(count)
         mean, std= gp.predict(x_new.reshape(1,-1), return_std=True)
         for j in range(J): # J = number of Monte Carlo iterations
             with warnings.catch_warnings():
@@ -175,9 +176,13 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
     mean_nstar = temp[0]
 
     grad_temp = []
-    mean, std= gp.predict(x.reshape(1,-1), return_std=True)
+    
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        mean, std= gp.predict(x.reshape(1,-1), return_std=True)
     for j in range(J):
-        print("j = ",j+1)
+        if j%5 == 0:
+            print("j=", j)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             temp = find_mean_max(x_obs,y_obs,gp,grid,mean,std,x)
@@ -205,7 +210,7 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
     for r in range(R):
         x_t = temp_lhs[r]
         for t in range(T):
-            G = _kg4(x_t, optimizer, gp, n_grid = 10, J = 2) 
+            G = _kg4(x_t, optimizer, gp, n_grid = 100, J = 30) 
             alpha = a/(a+t+1)
             x_t_new = x_t + alpha * G
             x_t = x_t_new
@@ -214,13 +219,13 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
     kg = np.zeros(len(x_T))
     
     for i in range(len(x_T)):
-        kg[i] = _kg2(x_T[i].reshape(1,-1), optimizer, gp, n_grid = 10, J = 2)
+        kg[i] = _kg2(x_T[i].reshape(1,-1), optimizer, gp, n_grid = 100, J = 30)
 
     return x_T[np.argmax(kg)] # WITHOUT reshape
     
     
 
-def acq_max(optimizer, ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, R=2, T=2, a=4):
+def acq_max(optimizer, ac, gp, y_max, bounds, random_state, n_warmup=10000, n_iter=10, R=1, T=2, a=4):
     """
     A function to find the maximum of the acquisition function
 

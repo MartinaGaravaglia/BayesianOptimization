@@ -9,6 +9,9 @@ parent = os.path.join(path, os.pardir)
 sys.path.append(os.path.abspath(parent))
 from bayes_opt1 import BayesianOptimization
 from bayes_opt1 import UtilityFunction
+sys.path.append(os.path.abspath(os.path.join(parent, 'bayes_opt1')))
+from util import _kg2
+
 
 
 def normalization(utility):
@@ -42,6 +45,7 @@ def plot_gp(optimizers, x, target, params, n_init=2):
     utility={}
     axis.plot(x, y, linewidth=3, label='Target')
     
+    i=0
     for acq, optimizer in optimizers.items(): 
         x_obs_i = np.array([[res["params"]["x"]] for res in optimizer.res])
         x_obs[acq] = x_obs_i
@@ -49,8 +53,12 @@ def plot_gp(optimizers, x, target, params, n_init=2):
         y_obs[acq] =  y_obs_i
         mu[acq], sigma[acq] = posterior(optimizer, x_obs_i, y_obs_i, x)
         utility_function = UtilityFunction(kind=acq, kappa = params[acq]['kappa'], xi = params[acq]['xi'])
-        utility[acq] = utility_function.utility(x, optimizer._gp, optimizer._space.target.max())
-
+        if acq != 'kg':
+            utility[acq] = utility_function.utility(x, optimizer, optimizer._gp, optimizer._space.target.max())
+        else:
+            utility[acq] = _kg2(x, optimizer, optimizer._gp, n_grid = 100, J = 30)
+        axis.plot(x, mu[acq], '--', color=colmap(i), label='Prediction')
+        i=i+1
     
     fig.suptitle(
         'Utility Functions After {} Iterations And {} Initial Points'.format(steps-n_init, n_init),
