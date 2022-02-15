@@ -113,8 +113,8 @@ def _kg2(x, optimizer, gp, n_grid = 100, J = 300):
         
     diff = np.zeros(len(x))
     for x_new in x:
-        if count%20 == 0:
-            print(count)
+        #if count%20 == 0:
+         #   print(count)
         mean, std= gp.predict(x_new.reshape(1,-1), return_std=True)
         for j in range(J): # J = number of Monte Carlo iterations
             with warnings.catch_warnings():
@@ -181,8 +181,8 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
         warnings.simplefilter("ignore")
         mean, std= gp.predict(x.reshape(1,-1), return_std=True)
     for j in range(J):
-        if j%5 == 0:
-            print("j=", j)
+        #if j%10 == 0:
+        #    print("j=", j)
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
             temp = find_mean_max(x_obs,y_obs,gp,grid,mean,std,x)
@@ -198,7 +198,16 @@ def _kg4(x, optimizer, gp, n_grid = 100, J = 300):
     grad = grad/J
     return grad
 
-
+def check_bounds(x_t_new, pbounds):
+    #dim=pbounds.shape[0]
+    j=0
+    for i in x_t_new:
+        if i > pbounds[j,1] or i<pbounds[j,0]:
+            print('ko')
+            return False
+        j=j+1
+    print('ok')  
+    return True
 
 # Implementation algorithm 3 (Frazier): Knowledge gradient 
 def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
@@ -210,16 +219,18 @@ def minimize_kg_sgd(R, T, a, pbounds, optimizer, gp):
     for r in range(R):
         x_t = temp_lhs[r]
         for t in range(T):
-            G = _kg4(x_t, optimizer, gp, n_grid = 100, J = 30) 
+            G = _kg4(x_t, optimizer, gp, n_grid = 100, J = 20) 
             alpha = a/(a+t+1)
             x_t_new = x_t + alpha * G
-            x_t = x_t_new
-        x_T.append(x_t_new)
+            if check_bounds(x_t_new, pbounds):
+                x_t = x_t_new
+            
+        x_T.append(x_t)
 
     kg = np.zeros(len(x_T))
     
     for i in range(len(x_T)):
-        kg[i] = _kg2(x_T[i].reshape(1,-1), optimizer, gp, n_grid = 100, J = 30)
+        kg[i] = _kg2(x_T[i].reshape(1,-1), optimizer, gp, n_grid = 100, J = 20)
 
     return x_T[np.argmax(kg)] # WITHOUT reshape
     
